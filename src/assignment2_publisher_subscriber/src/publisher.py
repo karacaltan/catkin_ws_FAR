@@ -25,7 +25,7 @@ def pub_speed():
     while not rospy.is_shutdown():
         header = std_msgs.msg.Header()
         pub.publish(header, 12.0)
-        rate.sleep
+        rate.sleep()
 
 if __name__ == '__main__':
     try:
