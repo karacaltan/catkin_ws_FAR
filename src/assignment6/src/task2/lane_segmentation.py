@@ -1,6 +1,9 @@
 #!/usr/bin/env python
+
+import roslib
 import rospy
 import cv2
+from std_msgs.msg import String
 import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
@@ -10,9 +13,8 @@ import sys
 class LaneSegmentation:
 
     def __init__(self):
-
-        rospy.init_node('image_converter', anonymous=True)
-        self.image_pub = rospy.Publisher("abc", Image, queue_size=10)
+        rospy.init_node('laneSegmentation', anonymous=True)
+        self.image_pub = rospy.Publisher("laneSegmentation", Image, queue_size=10)
 
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber("/sensors/camera/infra1/image_rect_raw", Image, self.callback)
