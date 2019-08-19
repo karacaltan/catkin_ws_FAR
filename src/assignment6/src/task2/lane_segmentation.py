@@ -50,8 +50,18 @@ def image_to_binary(image):
 def image_contours(image):
     im_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     ret, thresh = cv2.threshold(im_gray, 127, 255, 0)
-    im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
+    im2, contours, hierarchy = cv2.findContours(image=thresh,
+                                                mode=cv2.RETR_TREE,
+                                                method=cv2.CHAIN_APPROX_SIMPLE)
+
+    filtered_contours = []
+    for i in range(len(contours)):
+        if i < 40 or (i > 50 and i < 60):
+            filtered_contours.append(contours[i])
+    cropped_img = image[110:110+370, 106:106+470]
+
+    cv2.imshow("cropped", cropped_img)
+    cv2.drawContours(image, filtered_contours, -1, (0, 255, 0), 3)
     #print("Number of Contours found = " + str(len(contours)))
     cv2.imshow('Contour Image', image)
 
