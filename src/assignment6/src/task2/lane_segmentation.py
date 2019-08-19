@@ -9,6 +9,7 @@ from std_msgs.msg import String
 import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+import sys
 
 
 class image_converter:
