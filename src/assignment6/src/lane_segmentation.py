@@ -29,13 +29,14 @@ class LaneSegmentation:
         if cols > 60 and rows > 60:
             cv2.circle(cv_image, (50, 50), 10, 255)
 
-        cv2.imshow("Image window", cv_image)
+        # cv2.imshow("Image window", cv_image)
 
         img_bin = image_to_binary(cv_image)
         # img_cropped = crop_image(cv_image)
         img_cropped = crop_image(img_bin)
 
         ransac(img_cropped)
+        cv2.waitKey(100)
         # ransac(cv_image)
 
         try:
@@ -46,14 +47,12 @@ class LaneSegmentation:
 
 def image_to_binary(image):
     th, dst = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY)
-    cv2.waitKey(3)
     return dst
 
 
 def crop_image(image):
     cropped_img = image[110:110 + 158, 200:200 + 430]  # y:y+h, x:x+w
-    cv2.imshow("cropped", cropped_img)
-    cv2.waitKey(3)
+    # cv2.imshow("cropped", cropped_img)
     return cropped_img
 
 
@@ -71,8 +70,7 @@ def threshold_image(image):
     #         filtered_contours.append(contours[i])
     # cropped_img = image[110:110 + 158, 200:200 + 430]  # y:y+h, x:x+w
 
-    cv2.imshow("threshold", contours)
-    cv2.waitKey(3)
+    # cv2.imshow("threshold", contours)
     return contours
 
 
@@ -86,40 +84,49 @@ def ransac(image):
     #                                             mode=cv2.RETR_TREE,
     #                                             method=cv2.CHAIN_APPROX_SIMPLE)
     # cv2.drawContours(image, contours, -1, (0, 255, 0), 1)
-    cv2.imshow("ransac", image)
+    # cv2.imshow("ransac", image)
     # ----------------------------------------------------------------------------#
     # End
     # ----------------------------------------------------------------------------#
 
     coordinates = get_all_white_coordinates(image)
-    print(coordinates[0])
+    # print(coordinates[0])
     # ----------------------------------------------------------------------------#
     # Declaration
     # ----------------------------------------------------------------------------#
     number_of_samples = len(coordinates)
     sample_count = 0
+    t = 20
+    inliers = []
     # ----------------------------------------------------------------------------#
     # End
     # ----------------------------------------------------------------------------#
 
-    while number_of_samples > sample_count:
-        random_sample_index = np.random.randint(0, len(coordinates) - 1)
-        random_sample_index2 = np.random.randint(0, len(coordinates) - 1)
-        random_sample = coordinates[random_sample_index]
-        random_sample2 = coordinates[random_sample_index2]
-        coordinates_without_samples = coordinates
-        del coordinates_without_samples[random_sample_index]
-        del coordinates_without_samples[random_sample_index2 - 1]
-        for coordinate in coordinates_without_samples:
-            distance = distance_point_model(
-                np.asarray(random_sample),
-                np.asarray(random_sample2),
-                np.asarray(coordinate)
-            )
-            print distance
-        m, b = get_linear_function(random_sample, random_sample2)
-        print m, b
-        sample_count += 1
+    random_sample_index = np.random.randint(0, len(coordinates) - 1)
+    random_sample_index2 = np.random.randint(0, len(coordinates) - 1)
+    random_sample = coordinates[random_sample_index]
+    random_sample2 = coordinates[random_sample_index2]
+    coordinates_without_samples = coordinates
+    del coordinates_without_samples[random_sample_index]
+    del coordinates_without_samples[random_sample_index2 - 1]
+    for coordinate in coordinates_without_samples:
+        distance = distance_point_model(
+            np.asarray(random_sample),
+            np.asarray(random_sample2),
+            np.asarray(coordinate)
+        )
+        if distance < t:
+            inliers.append(coordinate)
+        print(distance)
+    m, b = get_linear_function(random_sample, random_sample2)
+    cv2.line(image,
+             pt1=random_sample,
+             pt2=random_sample2,
+             color=(0, 255, 0),
+             thickness=3)
+    cv2.imshow("line", image)
+    print(m, b)
+    sample_count += 1
 
 
 def distance_point_model(fst_point, snd_point, trd_point):
