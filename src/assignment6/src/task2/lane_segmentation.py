@@ -59,6 +59,7 @@ def crop_image(image):
     cv2.drawContours(cropped_img, contours, -1, (0, 255, 0), 3)
     cv2.imshow("cropped", cropped_img)
     cv2.drawContours(image, filtered_contours, -1, (0, 255, 0), 3)
+    
 
 
 def main(args):
