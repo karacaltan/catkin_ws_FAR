@@ -48,7 +48,7 @@ def image_to_binary(image):
 
 def crop_image(image):
     height, width = image.shape[:2]
-    start_now, start_col = int(height*.2), int(width*.2)
+    start_now, start_col = int(height*.25), int(width*.2)
     end_now, end_col = int(height * .5), int(width * .95)
     cropped_img = image[start_now:end_now, start_col:end_col]
     cv2.imshow("cropped", cropped_img)
@@ -56,13 +56,9 @@ def crop_image(image):
     ret, thresh = cv2.threshold(im_gray, 127, 255, 0)
     im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     filtered_contours = []
-    """for i in range(len(contours)):
-        if i < 34 or (i > 40 and i < 45):
-            filtered_contours.append(contours[i])"""
     cv2.drawContours(cropped_img, contours, -1, (0, 255, 0), 3)
     cv2.imshow("cropped", cropped_img)
     cv2.drawContours(image, filtered_contours, -1, (0, 255, 0), 3)
-    #cv2.imshow('Contour Image', image)
 
 
 def main(args):
