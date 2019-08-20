@@ -36,7 +36,7 @@ class LaneSegmentation:
         img = image_to_binary(cv_image)
         cropped = crop_image(img)
         white = get_all_white_coordinates(cropped)
-        ransac(white)
+        ransac(cropped, white)
 
 
         try:
@@ -53,8 +53,8 @@ def image_to_binary(image):
 
 def crop_image(image):
     height, width = image.shape[:2]
-    start_now, start_col = int(height*.25), int(width*.2)
-    end_now, end_col = int(height * .5), int(width * .95)
+    start_now, start_col = int(height*.15), int(width*.35)
+    end_now, end_col = int(height*.5), int(width * .75)
     cropped_img = image[start_now:end_now, start_col:end_col]
     cv2.imshow("cropped", cropped_img)
     im_gray = cv2.cvtColor(cropped_img, cv2.COLOR_BGR2GRAY)
@@ -72,7 +72,9 @@ def get_all_white_coordinates(img):
     return coordinates
 
 
-def ransac(coordinates):
+def ransac(image, coordinates):
+    coordinates_number = len(coordinates)
+    t = 40
     random_sample_index = np.random.randint(0, len(coordinates) - 1)
     random_sample_index2 = np.random.randint(0, len(coordinates) - 1)
     fst_point = coordinates[random_sample_index]
@@ -80,9 +82,16 @@ def ransac(coordinates):
     coordinates_without_samples = coordinates
     del coordinates_without_samples[random_sample_index]
     del coordinates_without_samples[random_sample_index2 - 1]
+    inliers = []
     for coordinate in coordinates_without_samples:
         distance = distance_point_model(np.asarray(fst_point), np.asarray(snd_point), np.asarray(coordinate))
+        if distance < t:
+            inliers.append(coordinate)
     slope, intercept = line_model(fst_point, snd_point)
+    if len(inliers) >= coordinates_number/2:
+        cv2.line(image, pt1=fst_point, pt2=snd_point, color=(0,255,0), thickness=3)
+        cv2.imshow("ransac", image)
+
     return slope, intercept
 
 
