@@ -87,12 +87,11 @@ def ransac(image, coordinates):
         distance = distance_point_model(np.asarray(fst_point), np.asarray(snd_point), np.asarray(coordinate))
         if distance < t:
             inliers.append(coordinate)
-    slope, intercept = line_model(fst_point, snd_point)
     if len(inliers) >= coordinates_number/2:
+        slope, intercept = line_model(fst_point, snd_point)
         cv2.line(image, pt1=fst_point, pt2=snd_point, color=(0,255,0), thickness=3)
         cv2.imshow("ransac", image)
-
-    return slope, intercept
+        print slope, intercept
 
 
 def line_model(fst_point, snd_point):
