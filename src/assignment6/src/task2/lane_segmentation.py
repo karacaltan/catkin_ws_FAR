@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
-import roslib
 import rospy
 import cv2
-from std_msgs.msg import String
+import math
 import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-from matplotlib import pyplot as plt
-import os,sys
+import numpy.linalg as alg
+import sys
 
 
 class LaneSegmentation:
@@ -32,10 +31,12 @@ class LaneSegmentation:
 
         cv2.imshow("Image window", cv_image)
 
-        img = image_to_binary(cv_image)
-        crop_image(img)
+        img_bin = image_to_binary(cv_image)
+        # img_cropped = crop_image(cv_image)
+        img_cropped = crop_image(img_bin)
 
-        ransac(img)
+        ransac(img_cropped)
+        # ransac(cv_image)
 
         try:
             self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
@@ -50,80 +51,99 @@ def image_to_binary(image):
 
 
 def crop_image(image):
+    cropped_img = image[110:110 + 158, 200:200 + 430]  # y:y+h, x:x+w
+    cv2.imshow("cropped", cropped_img)
+    cv2.waitKey(3)
+    return cropped_img
+
+
+def threshold_image(image):
     im_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     ret, thresh = cv2.threshold(im_gray, 127, 255, 0)
-    im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
     im2, contours, hierarchy = cv2.findContours(image=thresh,
                                                 mode=cv2.RETR_TREE,
                                                 method=cv2.CHAIN_APPROX_SIMPLE)
+    # cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
+    #
+    # filtered_contours = []
+    # for i in range(len(contours)):
+    #     if i < 40 or (i > 50 and i < 60):
+    #         filtered_contours.append(contours[i])
+    # cropped_img = image[110:110 + 158, 200:200 + 430]  # y:y+h, x:x+w
 
-    filtered_contours = []
-    for i in range(len(contours)):
-        if i < 40 or (i > 50 and i < 60):
-            filtered_contours.append(contours[i])
-    cropped_img = image[110:110+158, 200:200+430] #y:y+h, x:x+w
-
-    cv2.imshow("cropped", cropped_img)
-    cv2.drawContours(image, filtered_contours, -1, (0, 255, 0), 3)
-    #print("Number of Contours found = " + str(len(contours)))
-    cv2.imshow('Contour Image', image)
-
-
+    cv2.imshow("threshold", contours)
+    cv2.waitKey(3)
+    return contours
 
 
 def ransac(image):
-    MIN_MATCH_COUNT = 10
+    # ----------------------------------------------------------------------------#
+    # Draw Contours
+    # ----------------------------------------------------------------------------#
+    # im_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # ret, thresh = cv2.threshold(im_gray, 127, 255, 0)
+    # im2, contours, hierarchy = cv2.findContours(image=thresh,
+    #                                             mode=cv2.RETR_TREE,
+    #                                             method=cv2.CHAIN_APPROX_SIMPLE)
+    # cv2.drawContours(image, contours, -1, (0, 255, 0), 1)
+    cv2.imshow("ransac", image)
+    # ----------------------------------------------------------------------------#
+    # End
+    # ----------------------------------------------------------------------------#
 
-    img1 = image  # queryImage
-    img2 = crop_image(image)  # trainImage
+    coordinates = get_all_white_coordinates(image)
+    print(coordinates[0])
+    # ----------------------------------------------------------------------------#
+    # Declaration
+    # ----------------------------------------------------------------------------#
+    number_of_samples = len(coordinates)
+    sample_count = 0
+    # ----------------------------------------------------------------------------#
+    # End
+    # ----------------------------------------------------------------------------#
 
-    # Initiate SIFT detector
-    sift = cv2.SIFT_create()
+    while number_of_samples > sample_count:
+        random_sample_index = np.random.randint(0, len(coordinates) - 1)
+        random_sample_index2 = np.random.randint(0, len(coordinates) - 1)
+        random_sample = coordinates[random_sample_index]
+        random_sample2 = coordinates[random_sample_index2]
+        coordinates_without_samples = coordinates
+        del coordinates_without_samples[random_sample_index]
+        del coordinates_without_samples[random_sample_index2 - 1]
+        for coordinate in coordinates_without_samples:
+            distance = distance_point_model(
+                np.asarray(random_sample),
+                np.asarray(random_sample2),
+                np.asarray(coordinate)
+            )
+            print distance
+        m, b = get_linear_function(random_sample, random_sample2)
+        print m, b
+        sample_count += 1
 
-    # find the keypoints and descriptors with SIFT
-    kp1, des1 = sift.detectAndCompute(img1, None)
-    kp2, des2 = sift.detectAndCompute(img2, None)
 
-    FLANN_INDEX_KDTREE = 0
-    index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-    search_params = dict(checks=50)
+def distance_point_model(fst_point, snd_point, trd_point):
+    return alg.norm(np.cross(snd_point - fst_point, fst_point - trd_point)) / alg.norm(snd_point - fst_point)
 
-    flann = cv2.FlannBasedMatcher(index_params, search_params)
 
-    matches = flann.knnMatch(des1, des2, k=2)
+def get_linear_function(point1, point2):
+    m = (point1[0] - point2[0]) * 1.0 / (point1[1] - point2[1])
+    b = (point1[1] * point2[0] - point2[1] * point1[0]) * 1.0 / (point1[1] - point2[1])
+    return m, b
 
-    # store all the good matches as per Lowe's ratio test.
-    good = []
-    for m, n in matches:
-        if m.distance < 0.7 * n.distance:
-            good.append(m)
 
-    if len(good) > MIN_MATCH_COUNT:
-        src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-        dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+def get_all_white_coordinates(image):
+    indices = np.where(image == [255])
+    coordinates = zip(indices[0], indices[1])
+    coordinates = list(dict.fromkeys(coordinates))
+    return coordinates
 
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-        matchesMask = mask.ravel().tolist()
 
-        h, w = img1.shape
-        pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
-        dst = cv2.perspectiveTransform(pts, M)
+# Function to find distance
+def shortest_distance(x1, y1, a, b, c):
+    d = abs((a * x1 + b * y1 + c)) / (math.sqrt(a * a + b * b))
+    print("Perpendicular distance is"), d
 
-        img2 = cv2.polylines(img2, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
-
-    else:
-        print "Not enough matches are found - %d/%d" % (len(good), MIN_MATCH_COUNT)
-        matchesMask = None
-
-    draw_params = dict(matchColor=(0, 255, 0),  # draw matches in green color
-                       singlePointColor=None,
-                       matchesMask=matchesMask,  # draw only inliers
-                       flags=2)
-
-    img3 = cv2.drawMatches(img1, kp1, img2, kp2, good, None, **draw_params)
-
-    plt.imshow(img3, 'gray'), plt.show()
 
 def main(args):
     ic = LaneSegmentation()
