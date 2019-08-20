@@ -60,7 +60,9 @@ def crop_image(image):
         if i < 34 or (i > 40 and i < 45):
             filtered_contours.append(contours[i])"""
     cv2.drawContours(cropped_img, contours, -1, (0, 255, 0), 3)
-    cv2.imshow('Contour Image', cropped_img)
+    cv2.imshow("cropped", cropped_img)
+    cv2.drawContours(image, filtered_contours, -1, (0, 255, 0), 3)
+    #cv2.imshow('Contour Image', image)
 
 
 def main(args):
