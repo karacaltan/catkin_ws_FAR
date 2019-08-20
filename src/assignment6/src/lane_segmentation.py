@@ -36,7 +36,7 @@ class LaneSegmentation:
         img_cropped = crop_image(img_bin)
 
         ransac(img_cropped)
-        cv2.waitKey(100)
+        cv2.waitKey(500)
         # ransac(cv_image)
 
         try:
@@ -78,12 +78,12 @@ def ransac(image):
     # ----------------------------------------------------------------------------#
     # Draw Contours
     # ----------------------------------------------------------------------------#
-    # im_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # ret, thresh = cv2.threshold(im_gray, 127, 255, 0)
-    # im2, contours, hierarchy = cv2.findContours(image=thresh,
-    #                                             mode=cv2.RETR_TREE,
-    #                                             method=cv2.CHAIN_APPROX_SIMPLE)
-    # cv2.drawContours(image, contours, -1, (0, 255, 0), 1)
+    im_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    ret, thresh = cv2.threshold(im_gray, 200, 255, 0)
+    im2, contours, hierarchy = cv2.findContours(image=thresh,
+                                                mode=cv2.RETR_TREE,
+                                                method=cv2.CHAIN_APPROX_SIMPLE)
+    cv2.drawContours(image, contours, -1, (255, 255, 255), 5)
     # cv2.imshow("ransac", image)
     # ----------------------------------------------------------------------------#
     # End
@@ -96,7 +96,7 @@ def ransac(image):
     # ----------------------------------------------------------------------------#
     number_of_samples = len(coordinates)
     sample_count = 0
-    t = 20
+    t = 100
     inliers = []
     # ----------------------------------------------------------------------------#
     # End
@@ -118,13 +118,15 @@ def ransac(image):
         if distance < t:
             inliers.append(coordinate)
         print(distance)
+    if len(inliers) >= number_of_samples/2:
+        cv2.line(image,
+                 pt1=random_sample,
+                 pt2=random_sample2,
+                 color=(0, 255, 0),
+                 thickness=3)
+        cv2.imshow("line", image)
+
     m, b = get_linear_function(random_sample, random_sample2)
-    cv2.line(image,
-             pt1=random_sample,
-             pt2=random_sample2,
-             color=(0, 255, 0),
-             thickness=3)
-    cv2.imshow("line", image)
     print(m, b)
     sample_count += 1
 
@@ -140,9 +142,9 @@ def get_linear_function(point1, point2):
 
 
 def get_all_white_coordinates(image):
-    indices = np.where(image == [255])
+    indices = np.where(image == (255, 255, 255))
     coordinates = zip(indices[0], indices[1])
-    coordinates = list(dict.fromkeys(coordinates))
+    coordinates = list(set(list(coordinates)))
     return coordinates
 
 
