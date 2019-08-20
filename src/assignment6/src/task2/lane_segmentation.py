@@ -48,8 +48,8 @@ def image_to_binary(image):
 
 def crop_image(image):
     height, width = image.shape[:2]
-    start_now, start_col = int(height*.15), int(width*.15)
-    end_now, end_col = int(height * .85), int(width * .85)
+    start_now, start_col = int(height*.2), int(width*.2)
+    end_now, end_col = int(height * .5), int(width * .95)
     cropped_img = image[start_now:end_now, start_col:end_col]
     cv2.imshow("cropped", cropped_img)
     im_gray = cv2.cvtColor(cropped_img, cv2.COLOR_BGR2GRAY)
