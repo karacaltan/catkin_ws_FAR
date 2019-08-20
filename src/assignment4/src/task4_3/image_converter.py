@@ -16,7 +16,7 @@ class image_converter:
     def __init__(self):
 
         rospy.init_node('image_converter', anonymous=True)
-        self.image_pub = rospy.Publisher("/sensors/camera/infra1/image_rect_raw", Image, queue_size=10)
+        self.image_pub = rospy.Publisher("/abc", Image, queue_size=10)
 
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber("/sensors/camera/infra1/image_rect_raw", Image, self.callback)
@@ -34,7 +34,7 @@ class image_converter:
         cv2.imshow("Image window", cv_image)
 
         image_to_binary(cv_image)
-        image_contours(image_to_binary(cv_image))
+        #image_contours(image_to_binary(cv_image))
 
         try:
             self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
