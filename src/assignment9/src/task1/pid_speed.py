@@ -19,7 +19,7 @@ class PID:
 
         self.speed = 0.0
         self.desired_speed = 0.3
-        self.max_speed = 1.0
+        self.max_speed = 0.5
 
         self.kp = 1.25
         self.ki = 0.0
