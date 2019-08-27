@@ -2,7 +2,8 @@ import rospy
 from nav_msgs.msg import Odometry
 from autominy_msgs.msg import SpeedCommand, NormalizedSteeringCommand, SteeringCommand
 import tf.transformations
-import numpy
+import numpy as np
+import math
 
 
 class PID:
@@ -11,18 +12,18 @@ class PID:
         rospy.init_node("pid")
         self.speed_pub = rospy.Publisher("/actuators/speed", SpeedCommand, queue_size=10)
         self.steering_pub = rospy.Publisher("/actuators/steering_normalized", NormalizedSteeringCommand, queue_size=10)
-        self.localization_sub = rospy.Subscriber("/communication/gps/23", Odometry, self.on_localization, queue_size=1)
-        self.localization_sub = rospy.Subscriber("/control/steering", SteeringCommand, self.on_steering, queue_size=1)
+        self.localization_sub = rospy.Subscriber("/sensors/localization/filtered_map", Odometry, self.on_localization, queue_size=1)
+        self.steering_sub = rospy.Subscriber("/control/steering", SteeringCommand, self.on_steering, queue_size=1)
 
         self.pose = Odometry()
         self.rate = rospy.Rate(100)
         self.timer = rospy.Timer(rospy.Duration.from_sec(0.01), self.on_control)
 
-        self.kp = 2.0
+        self.kp = 3.0
         self.ki = 0.0
         self.kd = 0.2
-        self.min_i = -1.0
-        self.max_i = 1.0
+        self.min_i = 0.0
+        self.max_i = 0.0
 
         self.integral_error = 0.0
         self.last_error = 0.0
@@ -38,7 +39,7 @@ class PID:
     def on_localization(self, msg):
         self.pose = msg
 
-    def on_localization(self, msg):
+    def on_steering(self, msg):
         self.desired_angle = msg.value
 
     def on_control(self, tmr):
@@ -48,11 +49,16 @@ class PID:
         else:
             dt = (tmr.current_expected - tmr.last_expected).to_sec()
 
-        print dt
+        # print dt
         quat = [self.pose.pose.pose.orientation.x, self.pose.pose.pose.orientation.y, self.pose.pose.pose.orientation.z,
                 self.pose.pose.pose.orientation.w]
         roll, pitch, yaw = tf.transformations.euler_from_quaternion(quat)
         error = self.desired_angle - yaw
+
+        if error <= -math.pi:
+            error = yaw + self.desired_angle
+            if -self.desired_angle > yaw:
+                error = -error
 
         self.integral_error += error * dt
         self.integral_error = max(self.min_i, self.integral_error)

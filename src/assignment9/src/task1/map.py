@@ -1,6 +1,9 @@
 import rospy
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point, PointStamped
+from autominy_msgs.msg import SteeringCommand, NormalizedSteeringCommand, SpeedCommand
+from std_msgs.msg import UInt8
+from nav_msgs.msg import Odometry
 import scipy.interpolate
 import numpy as np
 
@@ -67,9 +70,17 @@ class MapVisualization:
     def __init__(self):
         self.map = Map()
         rospy.init_node("map_visualization")
-        self.lane_pub = rospy.Publisher("lane", Marker, queue_size=10)
-        self.clicked_point_subscriber = rospy.Subscriber("/clicked_point", PointStamped, self.on_click, queue_size=1)
 
+        self.steering = SteeringCommand()
+        self.steering_normalized = NormalizedSteeringCommand()
+        self.position = Odometry()
+
+        self.lane_pub = rospy.Publisher("lane", Marker, queue_size=10)
+        self.position_sub = rospy.Subscriber("/sensors/localization/filtered_map", Odometry, self.on_position,
+                                             queue_size=1)
+        self.pid_pub = rospy.Publisher("/control/steering", SteeringCommand, queue_size=1)
+        self.lane_switch = rospy.Subscriber("/control/lane_switch", UInt8, self.lane_switch, queue_size=1)
+        self.current_line = self.map.lanes[0]
         self.rate = rospy.Rate(1)
 
         while not rospy.is_shutdown():
@@ -93,37 +104,60 @@ class MapVisualization:
 
             self.rate.sleep()
 
-    def on_click(self, point_msg):
+    def on_position(self, point_msg):
+        coordinate_x = point_msg.pose.pose.position.x
+        coordinate_y = point_msg.pose.pose.position.y
+        orientation = point_msg.pose.pose.orientation
         i = 2
-        point = np.array([point_msg.point.x, point_msg.point.y])
-        for lane in self.map.lanes:
-            msg = Marker(type=Marker.SPHERE, action=Marker.ADD)
-            msg.header.frame_id = "map"
-            msg.scale.x = 0.1
-            msg.scale.y = 0.1
-            msg.scale.z = 0.1
-            msg.color.b = 1.0
-            msg.color.a = 1.0
-            msg.id = i
+        point = np.array([coordinate_x, coordinate_y])
+        msg = Marker(type=Marker.SPHERE, action=Marker.ADD)
+        msg.header.frame_id = "map"
+        msg.scale.x = 0.1
+        msg.scale.y = 0.1
+        msg.scale.z = 0.1
+        msg.color.b = 1.0
+        msg.color.a = 1.0
+        msg.pose.position.x = point[0]
+        msg.pose.position.y = point[1]
+        self.lane_pub.publish(msg)
+        msg.id = i
 
-            p, param = lane.closest_point(point)
-            msg.pose.position.x = p[0]
-            msg.pose.position.y = p[1]
+        p, param = self.current_line.closest_point(point)
+        msg.pose.position.x = p[0]
+        msg.pose.position.y = p[1]
 
-            i += 1
+        i += 1
 
-            self.lane_pub.publish(msg)
+        self.lane_pub.publish(msg)
 
-            msg.color.b = 0.0
-            msg.color.g = 1.0
-            p, param = lane.lookahead_point(point, 0.5)
-            msg.pose.position.x = p[0]
-            msg.pose.position.y = p[1]
-            msg.id = i
+        msg.color.b = 0.0
+        msg.color.g = 1.0
+        p, param = self.current_line.lookahead_point(point, 0.5)
+        msg.pose.position.x = p[0]
+        msg.pose.position.y = p[1]
+        msg.id = i
 
-            i += 1
+        i += 1
 
-            self.lane_pub.publish(msg)
+        self.lane_pub.publish(msg)
+
+        yaw = calc_angle(point, p)
+        self.steering.value = yaw
+        self.pid_pub.publish(self.steering)
+
+    def lane_switch(self, lane):
+        self.current_line = self.map.lanes[lane.data]
+
+
+def calc_angle(point1, point2):
+    delta_x, delta_y = point2[0] - point1[0], point2[1] - point1[1]
+    delta = [delta_x, delta_y]
+    unit_vec = [1, 0]
+    dot = (unit_vec[0] * delta[0] + unit_vec[1] * delta[1])
+    det = (np.sqrt(np.square(unit_vec[0]) + np.square(unit_vec[1]))) * (np.sqrt(np.square(delta[0]) + np.square(delta[1])))
+    yaw = np.arccos(dot / det)
+    yaw = -yaw if delta_y < 0 else yaw
+    return yaw
 
 
 if __name__ == "__main__":
